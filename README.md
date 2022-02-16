@@ -2,6 +2,13 @@
 
 The famous Connect4 game interfaced with gym.
 
+🟦🟦🟦🟦🟦🟦🟦\
+🟦🟦🟦🟦🟦🟦🟦\
+🟦🟡🟦🟦🟦🟦🟦\
+🟦🟡🔴🟦🟦🟦🟦\
+🟦🟡🔴🟦🟦🟦🟦\
+🟦🟡🔴🟦🟦🟦🟦
+
 ## Environment
 
 To run the project python3.8 is required.
