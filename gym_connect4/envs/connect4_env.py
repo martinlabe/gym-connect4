@@ -19,16 +19,17 @@ class Connect4Env(MultiAgentEnv):
 
         :conf:   dict with the configuration parameters
         """
+        self.type = np.bool
         self.size = (conf["height"], conf["width"])
         self.connect = conf["connect"]
-        self.grid_p1 = np.zeros(self.size, dtype=bool)
-        self.grid_p2 = np.zeros(self.size, dtype=bool)
+        self.grid_p1 = np.zeros(self.size, dtype=self.type)
+        self.grid_p2 = np.zeros(self.size, dtype=self.type)
         self.action_space = gym.spaces.Discrete(self.size[1])
         self.observation_space = gym.spaces.Box(low=False, high=True,
                                                 shape=(self.size[0],
                                                        self.size[1],
                                                        2),
-                                                dtype=bool)
+                                                dtype=self.type)
         self.test_mode = 1 if ("test_mode", 1) in conf.items() else 0
         self.count = 0
         self.done = {"__all__": False}
@@ -73,7 +74,7 @@ class Connect4Env(MultiAgentEnv):
         self.grid_p1[:] = 0
         self.grid_p2[:] = 0
         self.done["__all__"] = False
-        return self.render()
+        return {1: self.render()}
 
     ## GETTERS ################################################################
     def get_grid(self):
@@ -89,7 +90,7 @@ class Connect4Env(MultiAgentEnv):
         """
         generate the input for the network
 
-        :return: a (6, 7, 2) numpy array of bool type
+        :return: a (6, 7, 2) numpy array of self.type
         """
         if mode == 'human':
             self.print_board()
