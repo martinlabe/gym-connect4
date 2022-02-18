@@ -22,6 +22,7 @@ class Connect4Env(MultiAgentEnv):
         self.type = np.bool
         self.size = (conf["height"], conf["width"])
         self.connect = conf["connect"]
+        self.done_p = np.zeros(2, dtype=bool)
         self.grid_p1 = np.zeros(self.size, dtype=self.type)
         self.grid_p2 = np.zeros(self.size, dtype=self.type)
         self.action_space = gym.spaces.Discrete(self.size[1])
@@ -31,7 +32,6 @@ class Connect4Env(MultiAgentEnv):
                                                        2),
                                                 dtype=self.type)
         self.test_mode = 1 if ("test_mode", 1) in conf.items() else 0
-        self.count = 0
         self.done = {"__all__": False}
 
     def step(self, actions):
@@ -46,31 +46,40 @@ class Connect4Env(MultiAgentEnv):
             :info:   a dictionary that can be used in bug fixing
         """
         player, action = list(actions.items())[0]
-        position = self.play(player, action)
-
-        # if the action is illegal
-        if position is None:
-            # if it is because the grid is full
-            if self.get_grid().all():
-                self.done["__all__"] = True
-                reward = -1
-            # if it is because of the rules
-            else:
-                reward = -1
-        # if the action is legal
+        reward = 0
+        # if the game is over
+        if self.done_p.all():
+            self.done["__all__"] = True
+        # if the opponent won
+        elif self.done_p.any():
+            reward = - 100
+            self.done_p[:] = True
+            self.done["__all__"] = True
         else:
-            # if it leads to wining
-            if self.win(player, position):
-                self.done["__all__"] = True
-                reward = 100
-            # if it's not
+            position = self.play(player, action)
+            # if the action is illegal
+            if position is None:
+                # if it is because the grid is full
+                if self.get_grid().all():
+                    self.done["__all__"] = True
+                # if it is because of the rules
+                else:
+                    reward = -1
+            # if the action is legal
             else:
-                reward = -1
-
+                # if it leads to wining
+                if self.win(player, position):
+                    self.done_p[player - 1] = True
+                    reward = 100
+                # if it's not
+                else:
+                    reward = -1
         return {player: self.render()}, {player: reward}, self.done, {}
 
     def reset(self):
         """restart the environment"""
+        self.done_p1 = False
+        self.done_p2 = False
         self.grid_p1[:] = 0
         self.grid_p2[:] = 0
         self.done["__all__"] = False
@@ -114,6 +123,7 @@ class Connect4Env(MultiAgentEnv):
             self.grid_p1[line][column] = True
         else:
             self.grid_p2[line][column] = True
+        self.last_move = (line, column)
         return line, column
 
     def win(self, player, position):
