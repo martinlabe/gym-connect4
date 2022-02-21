@@ -86,8 +86,8 @@ class Connect4Env(MultiAgentEnv):
 
     def reset(self):
         """restart the environment"""
-        self.done_p1 = False
-        self.done_p2 = False
+        self.__done_p[:] = False
+        self.__player = 0
         self.__grid_p1[:] = 0
         self.__grid_p2[:] = 0
         self.done["__all__"] = False
@@ -155,7 +155,7 @@ class Connect4Env(MultiAgentEnv):
         else:
             self.__grid_p2[line][column] = True
         # and alternate the player
-        self.__player = (self.__player % 2) + 1
+        self.__player = player
         return line, column
 
     def win(self, player, position):
