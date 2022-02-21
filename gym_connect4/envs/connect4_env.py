@@ -77,33 +77,55 @@ class Connect4Env(MultiAgentEnv):
             else:
                 # if it leads to wining
                 if self.win(player, position):
-                    self.done_p[player - 1] = True
+                    self.__done_p[player - 1] = True
                     reward = 100
                 # if it's not
                 else:
                     reward = -1
-        return {player: self.render()}, {player: reward}, self.done, {}
+        return {player: self.render(mode="machine")}, {player: reward}, self.done, {}
 
     def reset(self):
         """restart the environment"""
         self.done_p1 = False
         self.done_p2 = False
-        self.grid_p1[:] = 0
-        self.grid_p2[:] = 0
+        self.__grid_p1[:] = 0
+        self.__grid_p2[:] = 0
         self.done["__all__"] = False
-        return {1: self.render()}
+        return {1: self.render(mode='machine')}
 
     ## GETTERS ################################################################
     def get_grid(self):
         """return the game grid"""
-        return self.grid_p1 | self.grid_p2
+        return self.__grid_p1 | self.__grid_p2
 
     def get_grid_p(self, player):
         """return the grid of the player"""
-        return self.grid_p1 if player == 1 else self.grid_p2
+        return self.__grid_p1 if player == 1 else self.__grid_p2
 
     ## MY GAME ################################################################
-    def render(self, mode='machine'):
+    def image(self):
+        """
+        generate an image of the game
+        """
+        res = np.zeros(shape=(self.size[0], self.size[1], 3), dtype=np.uint8)
+
+        # color used
+        YELLOW = (255, 255, 0)
+        RED = (255, 0, 0)
+        BLUE = (0, 0, 255)
+
+        # filling the image
+        for i in range(self.size[0]):
+            for j in range(self.size[1]):
+                if self.__grid_p1[i, j]:
+                    res[i, j] = YELLOW
+                elif self.__grid_p2[i, j]:
+                    res[i, j] = RED
+                else:
+                    res[i, j] = BLUE
+        return res
+
+    def render(self, mode="image"):
         """
         generate the input for the network
 
@@ -112,8 +134,9 @@ class Connect4Env(MultiAgentEnv):
         if mode == 'human':
             self.print_board()
             return
-
-        return np.dstack((self.grid_p1, self.grid_p2))
+        elif mode == 'machine':
+            return np.dstack((self.__grid_p1, self.__grid_p2))
+        return self.image()
 
     def play(self, player, column):
         """do the player move"""
