@@ -19,12 +19,10 @@ class Connect4Env(MultiAgentEnv):
 
         :conf:   dict with the configuration parameters
         """
+        # public
         self.type = np.bool
         self.size = (conf["height"], conf["width"])
         self.connect = conf["connect"]
-        self.done_p = np.zeros(2, dtype=bool)
-        self.grid_p1 = np.zeros(self.size, dtype=self.type)
-        self.grid_p2 = np.zeros(self.size, dtype=self.type)
         self.action_space = gym.spaces.Discrete(self.size[1])
         self.observation_space = gym.spaces.Box(low=False, high=True,
                                                 shape=(self.size[0],
@@ -33,6 +31,12 @@ class Connect4Env(MultiAgentEnv):
                                                 dtype=self.type)
         self.test_mode = 1 if ("test_mode", 1) in conf.items() else 0
         self.done = {"__all__": False}
+
+        # private
+        self.__player = 0
+        self.__done_p = np.zeros(2, dtype=bool)
+        self.__grid_p1 = np.zeros(self.size, dtype=self.type)
+        self.__grid_p2 = np.zeros(self.size, dtype=self.type)
 
     def step(self, actions):
         """
@@ -47,13 +51,17 @@ class Connect4Env(MultiAgentEnv):
         """
         player, action = list(actions.items())[0]
         reward = 0
+
+        # if it is not alternated
+        if player == self.__player:
+            reward = 0
         # if the game is over
-        if self.done_p.all():
+        elif self.__done_p.all():
             self.done["__all__"] = True
         # if the opponent won
-        elif self.done_p.any():
+        elif self.__done_p.any():
             reward = - 100
-            self.done_p[:] = True
+            self.__done_p[:] = True
             self.done["__all__"] = True
         else:
             position = self.play(player, action)
@@ -113,17 +121,18 @@ class Connect4Env(MultiAgentEnv):
         if column >= self.size[1] or column < 0:
             return None
         # if it is an invalid move (invalid rule)
-        if self.grid_p1[0, column] or self.grid_p2[0, column]:
+        if self.__grid_p1[0, column] or self.__grid_p2[0, column]:
             return None
-        # else
+        # else we play the move
         grid = self.get_grid()
         line = self.size[0] - np.argmax(np.flip(
             np.logical_not(grid[:, column]))) - 1
         if player == 1:
-            self.grid_p1[line][column] = True
+            self.__grid_p1[line][column] = True
         else:
-            self.grid_p2[line][column] = True
-        self.last_move = (line, column)
+            self.__grid_p2[line][column] = True
+        # and alternate the player
+        self.__player = (self.__player % 2) + 1
         return line, column
 
     def win(self, player, position):
@@ -181,9 +190,9 @@ class Connect4Env(MultiAgentEnv):
         buffer = ""
         for i in range(self.size[0]):
             for j in range(self.size[1]):
-                if self.grid_p1[i][j]:
+                if self.__grid_p1[i][j]:
                     buffer += pieces[1]
-                elif self.grid_p2[i][j]:
+                elif self.__grid_p2[i][j]:
                     buffer += pieces[2]
                 else:
                     buffer += pieces[0]
