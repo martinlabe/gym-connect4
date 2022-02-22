@@ -111,10 +111,10 @@ class Connect4Env(MultiAgentEnv):
                     done["__all__"] = False
                     self.__player = player
 
-            # verbose mode
-            if self.__verbose:
-                self.__count += 1
-                print(f"Step {self.__count} actions: {action_dict}, reward: {rew} #{mes}")
+        # verbose mode
+        if self.__verbose:
+            self.__count += 1
+            print(f"Step {self.__count} actions: {action_dict}, reward: {rew} #{mes}")
 
         return obs, rew, done, info
 
