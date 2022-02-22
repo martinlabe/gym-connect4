@@ -29,16 +29,17 @@ class Connect4Env(MultiAgentEnv):
                                                        self.size[1],
                                                        2),
                                                 dtype=self.type)
-        self.test_mode = 1 if ("test_mode", 1) in conf.items() else 0
-        self.done = {"__all__": False}
-
         # private
         self.__player = 0
-        self.__done_p = np.zeros(2, dtype=bool)
+        self.__count = 0
+        self.__verbose = False
+        if 'verbose' in list(conf.keys()) and conf["verbose"]:
+            self.__verbose = True
+        self.__done = False
         self.__grid_p1 = np.zeros(self.size, dtype=self.type)
         self.__grid_p2 = np.zeros(self.size, dtype=self.type)
 
-    def step(self, actions):
+    def step(self, action_dict):
         """
         compute the consequences of a step
 
@@ -49,49 +50,73 @@ class Connect4Env(MultiAgentEnv):
             :done:   a boolean saying if it reached an endpoint
             :info:   a dictionary that can be used in bug fixing
         """
-        player, action = list(actions.items())[0]
-        reward = 0
+        WIN, DRAWN, LOSS = 100, 0, -100,
+        PLAY, WRONG, OVER = -1, -1, 0
 
-        # if it is not alternated
-        if player == self.__player:
-            reward = 0
-        # if the game is over
-        elif self.__done_p.all():
-            self.done["__all__"] = True
-        # if the opponent won
-        elif self.__done_p.any():
-            reward = - 100
-            self.__done_p[:] = True
-            self.done["__all__"] = True
-        else:
+        obs, rew, done, info = {1: self.board(), 2: self.board()},\
+                                {}, \
+                                {"__all__": False, 1: False, 2: False}, \
+                                {}
+
+        for player, action in action_dict.items():
+            # if the game is over
+            if self.__done:
+                rew[player] = OVER
+                done["__all__"] = True
+                # info[player] = f"OVER: the game is over."
+                break
+            # if it is not the turn
+            elif self.__player == player:
+                rew[player] = WRONG
+                done["__all__"] = self.__done
+                # info[player] = f"WRONG: not the turn of player {player}"
+                continue
+
             position = self.play(player, action)
-            # if the action is illegal
+            obs[player] = self.board()
+            # if the action is illegal (the move)
             if position is None:
                 # if it is because the grid is full
                 if self.get_grid().all():
-                    self.done["__all__"] = True
+                    rew[player] = DRAWN
+                    done["__all__"] = True
+                    # info[player] = f"DRAWN: player {player} is facing a full grid."
+                    self.__done = True
                 # if it is because of the rules
                 else:
-                    reward = -1
+                    rew[player] = WRONG
+                    done["__all__"] = False
+                    # info[player] = f"WRONG: player {player} tried to play {action}."
             # if the action is legal
             else:
                 # if it leads to wining
                 if self.win(player, position):
-                    self.__done_p[player - 1] = True
-                    reward = 100
+                    rew[player] = WIN
+                    done["__all__"] = True
+                    rew[1 if player == 2 else 2] = LOSS
+                    self.__done = True
                 # if it's not
                 else:
-                    reward = -1
-        return {player: self.render(mode="machine")}, {player: reward}, self.done, {}
+                    rew[player] = PLAY
+                    done["__all__"] = False
+                    self.__player = player
+
+            # verbose mode
+            if self.__verbose:
+                self.__count += 1
+                mes = "" if not done["__all__"] else "#done"
+                print(f"Step {self.__count} player {player} plays {action}, reward: {rew} {mes}")
+
+        return obs, rew, done, info
 
     def reset(self):
         """restart the environment"""
-        self.__done_p[:] = False
+        self.__done = False
         self.__player = 0
+        self.__count = 0
         self.__grid_p1[:] = 0
         self.__grid_p2[:] = 0
-        self.done["__all__"] = False
-        return {1: self.render(mode='machine')}
+        return {0: self.board()}
 
     ## GETTERS ################################################################
     def get_grid(self):
@@ -125,18 +150,20 @@ class Connect4Env(MultiAgentEnv):
                     res[i, j] = BLUE
         return res
 
-    def render(self, mode="image"):
+    def board(self):
         """
         generate the input for the network
 
         :return: a (6, 7, 2) numpy array of self.type
         """
+        return np.dstack((self.__grid_p1, self.__grid_p2))
+
+    def render(self, mode="human"):
+        """generate the render of the game"""
         if mode == 'human':
             self.print_board()
-            return
         elif mode == 'machine':
-            return np.dstack((self.__grid_p1, self.__grid_p2))
-        return self.image()
+            return self.image()
 
     def play(self, player, column):
         """do the player move"""
@@ -154,8 +181,6 @@ class Connect4Env(MultiAgentEnv):
             self.__grid_p1[line][column] = True
         else:
             self.__grid_p2[line][column] = True
-        # and alternate the player
-        self.__player = player
         return line, column
 
     def win(self, player, position):
