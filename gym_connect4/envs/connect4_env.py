@@ -51,8 +51,9 @@ class Connect4Env(MultiAgentEnv):
             :info:   a dictionary that can be used in bug fixing
         """
         WIN, DRAWN, LOSS = 100, 0, -100,
-        PLAY, WRONG, OVER = -1, -1, 0
+        PLAY, WRONG, OVER = -1, -10, 0
 
+        mes = ""
         obs, rew, done, info = {1: self.board(), 2: self.board()}, \
                                {}, \
                                {"__all__": False, 1: False, 2: False}, \
@@ -63,13 +64,15 @@ class Connect4Env(MultiAgentEnv):
             if self.__done:
                 rew[player] = OVER
                 done["__all__"] = True
-                # info[player] = f"OVER: the game is over."
+                if self.__verbose:
+                    mes += f"OVER: the game is over."
                 break
             # if it is not the turn
             elif self.__player == player:
                 rew[player] = WRONG
                 done["__all__"] = self.__done
-                # info[player] = f"WRONG: not the turn of player {player}"
+                if self.__verbose:
+                    mes += f"WRONG: not the turn of player {player}"
                 continue
 
             position = self.play(player, action)
@@ -80,13 +83,18 @@ class Connect4Env(MultiAgentEnv):
                 if self.get_grid().all():
                     rew[player] = DRAWN
                     done["__all__"] = True
-                    # info[player] = f"DRAWN: player {player} is facing a full grid."
+                    if self.__verbose:
+                        mes += f"DRAWN: player {player} is facing a full grid."
                     self.__done = True
                 # if it is because of the rules
                 else:
-                    rew[player] = WRONG
-                    done["__all__"] = False
-                    # info[player] = f"WRONG: player {player} tried to play {action}."
+                    rew[player] = LOSS
+                    done["__all__"] = True
+                    if self.__verbose:
+                        mes += f"WRONG: player {player} tried to play {action}."
+                    # we count the turn
+                    # self.__player = player
+                    self.__done = True
             # if the action is legal
             else:
                 # if it leads to wining
@@ -94,6 +102,8 @@ class Connect4Env(MultiAgentEnv):
                     rew[player] = WIN
                     done["__all__"] = True
                     rew[1 if player == 2 else 2] = LOSS
+                    if self.__verbose:
+                        mes += f"WIN: player {player} won"
                     self.__done = True
                 # if it's not
                 else:
@@ -104,13 +114,13 @@ class Connect4Env(MultiAgentEnv):
             # verbose mode
             if self.__verbose:
                 self.__count += 1
-                mes = "" if not done["__all__"] else "#done"
-                print(f"Step {self.__count} player {player} plays {action}, reward: {rew} {mes}")
+                print(f"Step {self.__count} actions: {action_dict}, reward: {rew} #{mes}")
 
         return obs, rew, done, info
 
     def reset(self):
         """restart the environment"""
+        self.to_string()
         self.__done = False
         self.__player = 0
         self.__count = 0
