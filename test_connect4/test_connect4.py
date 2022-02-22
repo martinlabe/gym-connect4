@@ -19,7 +19,7 @@ def test(actions, verbose=True):
                 res = False
     if verbose:
         print(res)
-        a.print_board()
+        a.to_string()
     elif not res:
         print(res)
 

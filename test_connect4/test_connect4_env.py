@@ -12,10 +12,10 @@ def game(env, game, start, n):
 
 
 game(a, 1, 1, 10)
-a.print_board()
+a.to_string()
 a.reset()
 game(a, 2, 2, 10)
-a.print_board()
+a.to_string()
 a.reset()
 a.step({1: 1})
 a.step({1: 1})
@@ -23,4 +23,4 @@ a.step({2: 1})
 a.step({2: 1})
 a.step({1: 1})
 a.step({1: 1})
-a.print_board()
+a.to_string()
