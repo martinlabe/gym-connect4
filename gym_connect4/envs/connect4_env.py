@@ -32,12 +32,15 @@ class Connect4Env(MultiAgentEnv):
         # private
         self.__player = 0
         self.__count = 0
-        self.__verbose = False
-        if 'verbose' in list(conf.keys()) and conf["verbose"]:
-            self.__verbose = True
         self.__done = False
         self.__grid_p1 = np.zeros(self.size, dtype=self.type)
         self.__grid_p2 = np.zeros(self.size, dtype=self.type)
+        self.__verbose = False
+        if 'verbose' in list(conf.keys()) and conf["verbose"]:
+            self.__verbose = True
+        self.__visualization = False
+        if 'visualization' in list(conf.keys()) and conf["visualization"]:
+            self.__visualization = True
 
     def step(self, action_dict):
         """
@@ -50,77 +53,77 @@ class Connect4Env(MultiAgentEnv):
             :done:   a boolean saying if it reached an endpoint
             :info:   a dictionary that can be used in bug fixing
         """
+        assert len(action_dict.items()) == 1, "Alternated game: wrong input dict"
+
+        player, action = list(action_dict.items())[0]
+        self.__count += 1
+
         WIN, DRAWN, LOSS = 100, 0, -100,
         PLAY, WRONG, OVER = -1, -10, 0
-
-        mes = ""
-        obs, rew, done, info = {1: self.board(), 2: self.board()}, \
+        obs, rew, done, info = {}, \
                                {}, \
-                               {"__all__": False, 1: False, 2: False}, \
+                               {"__all__": False}, \
                                {}
 
-        for player, action in action_dict.items():
-            # if the game is over
-            if self.__done:
-                rew[player] = OVER
+        def verbose(message):
+            """print the step message to debug"""
+            if self.__verbose:
+                print(f"Step {self.__count} actions: {action_dict}, reward: {rew} #{message}")
+
+        # if the game is over
+        if self.__done:
+            obs = {}
+            rew[player] = OVER
+            done["__all__"] = True
+            verbose(f"OVER: the game is over.")
+            return obs, rew, done, info
+        # if it is not the turn
+        elif self.__player == player:
+            obs[self.get_other_player(player)] = self.board()
+            rew[player] = WRONG
+            done["__all__"] = self.__done
+            verbose(f"WRONG: not the turn of player {player}")
+            return obs, rew, done, info
+        # else let's play
+        position = self.play(player, action)
+        obs[self.get_other_player(player)] = self.board()
+        # if the action is illegal (the move)
+        if position is None:
+            # if it is because the grid is full
+            if self.get_grid().all():
+                rew[player] = DRAWN
+                rew[self.get_other_player(player)] = DRAWN
                 done["__all__"] = True
-                if self.__verbose:
-                    mes += f"OVER: the game is over."
-                break
-            # if it is not the turn
-            elif self.__player == player:
-                rew[player] = WRONG
-                done["__all__"] = self.__done
-                if self.__verbose:
-                    mes += f"WRONG: not the turn of player {player}"
-                continue
-
-            position = self.play(player, action)
-            obs[player] = self.board()
-            # if the action is illegal (the move)
-            if position is None:
-                # if it is because the grid is full
-                if self.get_grid().all():
-                    rew[player] = DRAWN
-                    done["__all__"] = True
-                    if self.__verbose:
-                        mes += f"DRAWN: player {player} is facing a full grid."
-                    self.__done = True
-                # if it is because of the rules
-                else:
-                    rew[player] = LOSS
-                    done["__all__"] = True
-                    if self.__verbose:
-                        mes += f"WRONG: player {player} tried to play {action}."
-                    # we count the turn
-                    # self.__player = player
-                    self.__done = True
-            # if the action is legal
+                verbose(f"DRAWN: player {player} is facing a full grid.")
+            # if it is because of the rules
             else:
-                # if it leads to wining
-                if self.win(player, position):
-                    rew[player] = WIN
-                    done["__all__"] = True
-                    rew[1 if player == 2 else 2] = LOSS
-                    if self.__verbose:
-                        mes += f"WIN: player {player} won"
-                    self.__done = True
-                # if it's not
-                else:
-                    rew[player] = PLAY
-                    done["__all__"] = False
-                    self.__player = player
+                rew[player] = LOSS
+                done["__all__"] = True
+                verbose(f"WRONG: player {player} tried to play {action}.")
+        # if the action is legal
+        else:
+            # if it leads to wining
+            if self.win(player, position):
+                rew[player] = WIN
+                rew[self.get_other_player(player)] = LOSS
+                done["__all__"] = True
+                verbose(f"WIN: player {player} won")
+            # if it's not
+            else:
+                rew[player] = PLAY
+                done["__all__"] = False
+                self.__player = player
+                verbose("")
 
-        # verbose mode
-        if self.__verbose:
-            self.__count += 1
-            print(f"Step {self.__count} actions: {action_dict}, reward: {rew} #{mes}")
+        # inform the environment if the game is done
+        self.__done = done["__all__"]
 
         return obs, rew, done, info
 
     def reset(self):
         """restart the environment"""
-        self.to_string()
+        if self.__visualization:
+            self.to_string()
         self.__done = False
         self.__player = 0
         self.__count = 0
@@ -136,6 +139,10 @@ class Connect4Env(MultiAgentEnv):
     def get_grid_p(self, player):
         """return the grid of the player"""
         return self.__grid_p1 if player == 1 else self.__grid_p2
+
+    @staticmethod
+    def get_other_player(player):
+        return 1 if player == 2 else 2
 
     ## MY GAME ################################################################
     def board(self):
