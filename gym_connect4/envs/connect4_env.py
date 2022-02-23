@@ -81,15 +81,14 @@ class Connect4Env(MultiAgentEnv):
             obs = {}
             rew[player] = OVER
             done["__all__"] = True
-            info[player] = "OVER"
-            verbose(f"{info[player]}: the game is over.")
+            verbose(f"OVER: the game is over.")
             return obs, rew, done, info
         # if it is not the turn
         elif self.player == player:
             obs[self.get_other_player(player)] = self.board()
             rew[player] = WRONG
             done["__all__"] = self.done
-            info[player] = "WRONG"
+            info[self.get_other_player(player)] = "WRONG"
             verbose(f"{info[player]}: not the turn of player {player}")
             return obs, rew, done, info
         # else let's play
@@ -102,14 +101,14 @@ class Connect4Env(MultiAgentEnv):
                 rew[player] = DRAW
                 rew[self.get_other_player(player)] = DRAW
                 done["__all__"] = True
-                info[player] = "DRAW"
-                verbose(f"{info[player]}: player {player} is facing a full grid.")
+                info[self.get_other_player(player)] = "DRAW"
+                verbose(f"{info[self.get_other_player(player)]}: player {player} is facing a full grid.")
             # if it is because of the rules
             else:
                 rew[player] = LOSS
                 done["__all__"] = True
-                info[player] = "WRONG"
-                verbose(f"{info[player]}: player {player} tried to play {action}.")
+                info[self.get_other_player(player)] = "WRONG"
+                verbose(f"{info[self.get_other_player(player)]}: player {player} tried to play {action}.")
         # if the action is legal
         else:
             # update the last player
@@ -119,18 +118,18 @@ class Connect4Env(MultiAgentEnv):
                 rew[player] = WIN
                 rew[self.get_other_player(player)] = LOSS
                 done["__all__"] = True
-                info[player] = "WIN"
-                verbose(f"{info[player]}: player {player} won")
+                info[self.get_other_player(player)] = "WIN"
+                verbose(f"{info[self.get_other_player(player)]}: player {player} won")
             # if it's not
             else:
                 rew[player] = PLAY
                 done["__all__"] = False
-                info[player] = "PLAY"
+                info[self.get_other_player(player)] = "PLAY"
                 verbose("")
 
         # inform the environment if the game is done
         self.done = done["__all__"]
-        self.state = info[player]
+        self.state = info[self.get_other_player(player)]
         return obs, rew, done, info
 
     def reset(self):
