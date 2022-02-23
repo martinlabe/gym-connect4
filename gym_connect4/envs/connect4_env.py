@@ -29,18 +29,18 @@ class Connect4Env(MultiAgentEnv):
                                                        self.size[1],
                                                        2),
                                                 dtype=self.type)
+        self.verbose = False
+        if 'verbose' in list(conf.keys()) and conf["verbose"]:
+            self.verbose = True
+        self.visualization = False
+        if 'visualization' in list(conf.keys()) and conf["visualization"]:
+            self.visualization = True
         # private
         self.__player = 0
         self.__count = 0
         self.__done = False
         self.__grid_p1 = np.zeros(self.size, dtype=self.type)
         self.__grid_p2 = np.zeros(self.size, dtype=self.type)
-        self.__verbose = False
-        if 'verbose' in list(conf.keys()) and conf["verbose"]:
-            self.__verbose = True
-        self.__visualization = False
-        if 'visualization' in list(conf.keys()) and conf["visualization"]:
-            self.__visualization = True
 
     def step(self, action_dict):
         """
@@ -67,7 +67,7 @@ class Connect4Env(MultiAgentEnv):
 
         def verbose(message):
             """print the step message to debug"""
-            if self.__verbose:
+            if self.verbose:
                 print(f"Step {self.__count} actions: {action_dict}, reward: {rew} #{message}")
 
         # if the game is over
@@ -122,14 +122,14 @@ class Connect4Env(MultiAgentEnv):
 
     def reset(self):
         """restart the environment"""
-        if self.__visualization:
+        if self.visualization:
             self.to_string()
         self.__done = False
         self.__player = 0
         self.__count = 0
         self.__grid_p1[:] = 0
         self.__grid_p2[:] = 0
-        return {1: self.board(), 2: self.board()}
+        return {1: self.board()}
 
     ## GETTERS ################################################################
     def get_grid(self):
@@ -240,6 +240,7 @@ class Connect4Env(MultiAgentEnv):
                 else:
                     buffer += pieces[0]
             buffer += '\n'
+        buffer += "1️⃣ 2️⃣ 3️⃣ 4️⃣ 5️⃣ 6️⃣ 7️⃣"
         print(buffer)
 
     def to_image(self):
