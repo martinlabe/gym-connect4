@@ -19,34 +19,44 @@ class Connect4Env(MultiAgentEnv):
 
         :conf:   dict with the configuration parameters
         """
+        def __get_attribute(name):
+            """return True if the attribute is set to True"""
+            return name in list(conf.keys()) and conf[name]
+
+        def __get_observation_space(compact=True):
+            """choose to work either with (6, 7, 2) boolean or (6, 7) bytes"""
+            if compact:
+                return gym.spaces.Box(low=-1, high=1,
+                                      shape=(self.size[0],
+                                             self.size[1]),
+                                      dtype=np.byte)
+            else:
+                return gym.spaces.Box(low=False, high=True,
+                                      shape=(self.size[0],
+                                             self.size[1],
+                                             2),
+                                      dtype=bool)
+
         # public
         ## for the game
         self.player = 0
         self.done = False
         self.state = ""
         ## for the config
-        self.type = np.bool
         self.size = (conf["height"], conf["width"])
         self.connect = conf["connect"]
+        ## for modes
+        self.verbose = __get_attribute("verbose")
+        self.visualization = __get_attribute("visualization")
+        # for the class
+        self.__count = 0
+        # choose (6, 7, 2) or (6, 7), also change low and high is obsspace
+        self.__grid_p1 = np.zeros(self.size, dtype=bool)
+        self.__grid_p2 = np.zeros(self.size, dtype=bool)
         ## for gym
         self.action_space = gym.spaces.Discrete(self.size[1])
-        self.observation_space = gym.spaces.Box(low=False, high=True,
-                                                shape=(self.size[0],
-                                                       self.size[1],
-                                                       2),
-                                                dtype=self.type)
-        ## for modes
-        self.verbose = False
-        if 'verbose' in list(conf.keys()) and conf["verbose"]:
-            self.verbose = True
-        self.visualization = False
-        if 'visualization' in list(conf.keys()) and conf["visualization"]:
-            self.visualization = True
+        self.observation_space = __get_observation_space()
 
-        # private
-        self.__count = 0
-        self.__grid_p1 = np.zeros(self.size, dtype=self.type)
-        self.__grid_p2 = np.zeros(self.size, dtype=self.type)
 
     def step(self, action_dict):
         """
@@ -65,7 +75,7 @@ class Connect4Env(MultiAgentEnv):
         self.__count += 1
 
         WIN, DRAW, LOSS = 100, 0, -100,
-        PLAY, WRONG, OVER = -1, -10, 0
+        PLAY, WRONG, OVER = 0, -10, 0
         obs, rew, done, info = {}, \
                                {}, \
                                {"__all__": False}, \
@@ -74,7 +84,8 @@ class Connect4Env(MultiAgentEnv):
         def verbose(message):
             """print the step message to debug"""
             if self.verbose:
-                print(f"Step {self.__count} actions: {action_dict}, reward: {rew} #{message}")
+                v_player, v_action = list(action_dict.items())[0]
+                print(f"Step {self.__count} actions: [{v_player}, {v_action + 1}], reward: {rew} #{message}")
 
         # if the game is over
         if self.done:
@@ -85,7 +96,7 @@ class Connect4Env(MultiAgentEnv):
             return obs, rew, done, info
         # if it is not the turn
         elif self.player == player:
-            obs[self.get_other_player(player)] = self.board()
+            obs[self.get_other_player(player)] = self.board(self.get_other_player(player))
             rew[player] = WRONG
             done["__all__"] = self.done
             info[self.get_other_player(player)] = "WRONG"
@@ -93,7 +104,9 @@ class Connect4Env(MultiAgentEnv):
             return obs, rew, done, info
         # else let's play
         position = self.play(player, action)
-        obs[self.get_other_player(player)] = self.board()
+        # update the last player
+        self.player = player
+        obs[self.get_other_player(player)] = self.board(self.get_other_player(player))
         # if the action is illegal (the move)
         if position is None:
             # if it is because the grid is full
@@ -105,14 +118,12 @@ class Connect4Env(MultiAgentEnv):
                 verbose(f"{info[self.get_other_player(player)]}: player {player} is facing a full grid.")
             # if it is because of the rules
             else:
-                rew[player] = LOSS
-                done["__all__"] = True
+                rew[player] = WRONG
+                #done["__all__"] = True
                 info[self.get_other_player(player)] = "WRONG"
-                verbose(f"{info[self.get_other_player(player)]}: player {player} tried to play {action}.")
+                verbose(f"{info[self.get_other_player(player)]}: player {player} tried to play {action + 1}.")
         # if the action is legal
         else:
-            # update the last player
-            self.player = player
             # if it leads to wining
             if self.win(player, position):
                 rew[player] = WIN
@@ -141,7 +152,7 @@ class Connect4Env(MultiAgentEnv):
         self.__count = 0
         self.__grid_p1[:] = 0
         self.__grid_p2[:] = 0
-        return {1: self.board()}
+        return {1: self.board(1)}
 
     ## GETTERS ################################################################
     def get_grid(self):
@@ -157,13 +168,25 @@ class Connect4Env(MultiAgentEnv):
         return 1 if player == 2 else 2
 
     ## MY GAME ################################################################
-    def board(self):
+    def board(self, player):
         """
         generate the input for the network
 
         :return: a (6, 7, 2) numpy array of self.type
         """
-        return np.dstack((self.__grid_p1, self.__grid_p2))
+        res = None
+        grid_pa = self.__grid_p1 if player == 1 else self.__grid_p2
+        grid_pb = self.__grid_p2 if player == 1 else self.__grid_p1
+        # return a (6, 7) byte array with agent 1 and other -1
+        if len(self.observation_space.shape) == 2:
+            res = np.zeros(self.observation_space.shape,
+                           dtype=self.observation_space.dtype)
+            res[grid_pa == 1] = 1
+            res[grid_pb == 1] = -1
+        # return a (6, 7, 2) bool array with agent True and other False
+        else:
+            res = np.dstack((grid_pa, grid_pb))
+        return res
 
     def render(self, mode="human"):
         """generate the render of the game"""
